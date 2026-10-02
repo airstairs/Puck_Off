@@ -1,2 +1,9 @@
 # Puck_Off
-Pick Off pame gigeon
+Pick Off pame gigeon  
+
+
+![ic](ic.png)  
+
+
+![rec](recording.gif)  
+

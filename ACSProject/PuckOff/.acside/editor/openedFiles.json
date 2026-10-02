@@ -1,0 +1,80 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/PuckOff/app/src/main/res/values/strings.xml",
+      "selection": {
+        "end": {
+          "column": 33,
+          "index": 45,
+          "line": 1
+        },
+        "start": {
+          "column": 33,
+          "index": 45,
+          "line": 1
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/PuckOff/app/src/main/res/layout/activity_main.xml",
+      "selection": {
+        "end": {
+          "column": 52,
+          "index": 594,
+          "line": 14
+        },
+        "start": {
+          "column": 52,
+          "index": 594,
+          "line": 14
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/PuckOff/app/src/main/AndroidManifest.xml",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 963,
+          "line": 24
+        },
+        "start": {
+          "column": 0,
+          "index": 963,
+          "line": 24
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/PuckOff/app/src/main/kotlin/com/xthan/puckoff/MainActivity.kt",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 26,
+          "line": 1
+        },
+        "start": {
+          "column": 0,
+          "index": 26,
+          "line": 1
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/PuckOff/app/src/main/assets/index.html",
+      "selection": {
+        "end": {
+          "column": 17,
+          "index": 4982,
+          "line": 165
+        },
+        "start": {
+          "column": 17,
+          "index": 4982,
+          "line": 165
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/PuckOff/app/src/main/assets/index.html"
+}
