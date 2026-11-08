@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Android Puck Ring Battle</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0f19;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px;
+            z-index: 10;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        .score-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            padding: 8px 16px;
+            border-radius: 12px;
+            color: white;
+            font-weight: 800;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .score-card.active {
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        .p1-color { color: #3b82f6; }
+        .p2-color { color: #ef4444; }
+        
+        .controls-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .turn-indicator {
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+        .btn-launch {
+            pointer-events: auto;
+            background: linear-gradient(135deg, #22c55e, #15803d);
+            border: 2px solid rgba(255,255,255,0.4);
+            color: white;
+            padding: 12px 28px;
+            border-radius: 25px;
+            font-weight: 800;
+            font-size: 16px;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+            cursor: pointer;
+            display: none;
+        }
+        .btn-launch:active {
+            transform: scale(0.95);
+        }
+        #menu-modal, #win-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 15, 25, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            pointer-events: auto;
+        }
+        #win-overlay { display: none; z-index: 25; }
+        .menu-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 30px;
+            border-radius: 24px;
+            text-align: center;
+            max-width: 340px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
+        .menu-title {
+            color: #f8fafc;
+            font-size: 26px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .menu-subtitle {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 15px;
+            color: white;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        .btn-vs-ai { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .btn-multiplayer { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+        .btn-restart {
+            pointer-events: auto;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+    </style>
+
+    <!-- Three.js library -->
+    <script src="three.min.js"></script>
+</head>
+<body oncontextmenu="return false;">
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-overlay">
+        <div class="header">
+            <div id="p1-score-card" class="score-card active">
+                <span class="p1-color">P1</span>
+                <span id="p1-count">3</span>
+            </div>
+            <button class="btn-restart" onclick="showMenu()">Menu</button>
+            <div id="p2-score-card" class="score-card">
+                <span id="p2-label" class="p2-color">CPU</span>
+                <span id="p2-count">3</span>
+            </div>
+        </div>
+
+        <div class="controls-area">
+            <div id="turn-banner" class="turn-indicator">P1: Drag pucks to aim shots</div>
+            <button id="launch-btn" class="btn-launch" onclick="launchBatchShots()">RELEASE ALL SHOTS 🚀</button>
+        </div>
+    </div>
+
+    <div id="menu-modal">
+        <div class="menu-card">
+            <div class="menu-title">PUCK SLIDE RING</div>
+            <div class="menu-subtitle">Set aim for all pucks each round. Outer ring shrinks over time!</div>
+            <button class="btn btn-vs-ai" onclick="startGame('ai')">🎮 vs Computer</button>
+            <button class="btn btn-multiplayer" onclick="startGame('pvp')">👥 Pass & Play (2P)</button>
+        </div>
+    </div>
+
+    <div id="win-overlay">
+        <div id="win-text" style="font-size: 32px; font-weight: 900; color: #fff; margin-bottom: 20px;">P1 WINS!</div>
+        <button class="btn btn-vs-ai" style="width: 200px;" onclick="resetGame()">Play Again</button>
+    </div>
+
+    <script>
+        // --- GAME STATE VARIABLES ---
+        let gameMode = 'ai';
+        let currentTurn = 'p1';
+        let isMoving = false;
+        let gameOver = false;
+        let currentRound = 1;
+
+        const PUCK_RADIUS = 0.55;
+        const PUCK_HEIGHT = 0.3;
+        
+        // --- TUNED HEAVY PHYSICS CONSTANTS ---
+        const ICE_FRICTION = 0.955;    // Higher friction (0.982 -> 0.955) for quick slowing
+        const LAUNCH_POWER_SCALE = 0.22; // Reduced launch speed (0.45 -> 0.22)
+        const RESTITUTION = 0.45;      // Inelastic collisions (1.0 -> 0.45) for muted bounce & heavy impact
+        
+        const RING_RADII = [10.0, 7.8, 5.6, 3.6];
+        let currentRadius = RING_RADII[0];
+
+        let p1Pucks = [];
+        let p2Pucks = [];
+        let iceRings = [];
+
+        // Input vectors & touch state
+        let activePuck = null;
+        let isDragging = false;
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+        // --- THREE.JS SCENE SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0e17);
+
+        const aspect = window.innerWidth / window.innerHeight;
+        const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+        camera.position.set(0, 22, 16);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight.position.set(10, 25, 10);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // --- CIRCULAR ARENA (WHITE & GREY PALETTE) ---
+        function createCircularArena() {
+            iceRings.forEach(r => scene.remove(r.mesh));
+            iceRings = [];
+
+            const ringColors = [0xf8fafc, 0xe2e8f0, 0xc0cbdc, 0x94a3b8];
+
+            for (let i = 0; i < RING_RADII.length; i++) {
+                const rOuter = RING_RADII[i];
+                const rInner = i < RING_RADII.length - 1 ? RING_RADII[i + 1] : 0;
+                
+                const shape = new THREE.Shape();
+                shape.absarc(0, 0, rOuter, 0, Math.PI * 2, false);
+                if (rInner > 0) {
+                    const hole = new THREE.Path();
+                    hole.absarc(0, 0, rInner, 0, Math.PI * 2, true);
+                    shape.holes.push(hole);
+                }
+
+                const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.3, bevelEnabled: false });
+                geo.rotateX(-Math.PI / 2);
+
+                const mat = new THREE.MeshStandardMaterial({
+                    color: ringColors[i % ringColors.length],
+                    roughness: 0.35,
+                    metalness: 0.05
+                });
+
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.y = -0.3;
+                mesh.receiveShadow = true;
+                scene.add(mesh);
+
+                iceRings.push({ mesh, radius: rOuter, tier: i, active: true });
+            }
+        }
+        createCircularArena();
+
+        // --- PUCK MESH CREATION ---
+        function createPuckMesh(colorHex) {
+            const group = new THREE.Group();
+            
+            const bodyGeo = new THREE.CylinderGeometry(PUCK_RADIUS, PUCK_RADIUS, PUCK_HEIGHT, 24);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            group.add(body);
+
+            const domeGeo = new THREE.SphereGeometry(PUCK_RADIUS * 0.7, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+            const dome = new THREE.Mesh(domeGeo, bodyMat);
+            dome.position.y = PUCK_HEIGHT / 2;
+            group.add(dome);
+
+            // Slingshot Aim Line
+            const aimLineGeo = new THREE.CylinderGeometry(0.06, 0.06, 1, 8);
+            aimLineGeo.translate(0, 0.5, 0);
+            aimLineGeo.rotateX(Math.PI / 2);
+            const aimMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+            const aimLine = new THREE.Mesh(aimLineGeo, aimMat);
+            aimLine.visible = false;
+            aimLine.position.y = PUCK_HEIGHT / 2 + 0.1;
+            group.add(aimLine);
+
+            return { group, aimLine, aimMat };
+        }
+
+        function createPuck(x, z, team) {
+            const color = team === 'p1' ? 0x2563eb : 0xdc2626;
+            const { group, aimLine, aimMat } = createPuckMesh(color);
+            group.position.set(x, PUCK_HEIGHT / 2, z);
+            scene.add(group);
+
+            const puck = {
+                mesh: group,
+                aimLine,
+                aimMat,
+                x: x,
+                z: z,
+                vx: 0,
+                vz: 0,
+                team,
+                alive: true,
+                falling: false,
+                fallVelocityY: 0,
+                rotSpeedX: 0,
+                rotSpeedZ: 0,
+                targetVel: new THREE.Vector2(0, 0),
+                hasAim: false
+            };
+
+            if (team === 'p1') p1Pucks.push(puck);
+            else p2Pucks.push(puck);
+        }
+
+        function spawnPucks() {
+            [...p1Pucks, ...p2Pucks].forEach(p => scene.remove(p.mesh));
+            p1Pucks = [];
+            p2Pucks = [];
+
+            const spawnR = currentRadius * 0.6;
+            createPuck(-spawnR * 0.5, spawnR, 'p1');
+            createPuck(0, spawnR * 0.8, 'p1');
+            createPuck(spawnR * 0.5, spawnR, 'p1');
+
+            createPuck(-spawnR * 0.5, -spawnR, 'p2');
+            createPuck(0, -spawnR * 0.8, 'p2');
+            createPuck(spawnR * 0.5, -spawnR, 'p2');
+
+            updateScoreUI();
+        }
+
+        // --- HEAVY HEAVY-FRICTION 2D PHYSICS ENGINE ---
+        function updatePhysics() {
+            const allPucks = [...p1Pucks, ...p2Pucks];
+
+            // 1. Velocity updates, heavy friction, & fall triggers
+            allPucks.forEach(p => {
+                if (!p.alive) return;
+
+                if (p.falling) {
+                    p.mesh.position.y -= p.fallVelocityY;
+                    p.fallVelocityY += 0.015;
+                    p.mesh.rotation.x += p.rotSpeedX;
+                    p.mesh.rotation.z += p.rotSpeedZ;
+
+                    if (p.mesh.position.y < -12) {
+                        p.alive = false;
+                        scene.remove(p.mesh);
+                    }
+                    return;
+                }
+
+                p.x += p.vx;
+                p.z += p.vz;
+
+                // High-friction surface deceleration
+                p.vx *= ICE_FRICTION;
+                p.vz *= ICE_FRICTION;
+
+                if (Math.abs(p.vx) < 0.0008) p.vx = 0;
+                if (Math.abs(p.vz) < 0.0008) p.vz = 0;
+
+                p.mesh.position.x = p.x;
+                p.mesh.position.z = p.z;
+
+                // Edge fall detection
+                const distFromCenter = Math.sqrt(p.x * p.x + p.z * p.z);
+                if (distFromCenter > currentRadius) {
+                    p.falling = true;
+                    p.fallVelocityY = 0.05;
+                    p.rotSpeedX = (Math.random() - 0.5) * 0.15;
+                    p.rotSpeedZ = (Math.random() - 0.5) * 0.15;
+                }
+            });
+
+            // 2. Heavy Dampened (Inelastic) 2D Collision Resolution
+            for (let i = 0; i < allPucks.length; i++) {
+                for (let j = i + 1; j < allPucks.length; j++) {
+                    const p1 = allPucks[i];
+                    const p2 = allPucks[j];
+
+                    if (!p1.alive || !p2.alive || p1.falling || p2.falling) continue;
+
+                    const dx = p2.x - p1.x;
+                    const dz = p2.z - p1.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    const minDist = PUCK_RADIUS * 2;
+
+                    if (distance < minDist && distance > 0) {
+                        const nx = dx / distance;
+                        const nz = dz / distance;
+
+                        // Separate overlapping pucks
+                        const overlap = minDist - distance;
+                        p1.x -= nx * (overlap / 2);
+                        p1.z -= nz * (overlap / 2);
+                        p2.x += nx * (overlap / 2);
+                        p2.z += nz * (overlap / 2);
+
+                        p1.mesh.position.x = p1.x;
+                        p1.mesh.position.z = p1.z;
+                        p2.mesh.position.x = p2.x;
+                        p2.mesh.position.z = p2.z;
+
+                        // Relative velocity along collision normal
+                        const kx = p1.vx - p2.vx;
+                        const kz = p1.vz - p2.vz;
+                        const velAlongNormal = nx * kx + nz * kz;
+
+                        // Do not resolve if moving apart
+                        if (velAlongNormal > 0) {
+                            const impulse = (1 + RESTITUTION) * velAlongNormal / 2;
+
+                            p1.vx -= impulse * nx;
+                            p1.vz -= impulse * nz;
+                            p2.vx += impulse * nx;
+                            p2.vz += impulse * nz;
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- CONTROLS & AIMING ---
+        function getPointerWorldPos(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const hit = new THREE.Vector3();
+            raycaster.ray.intersectPlane(groundPlane, hit);
+            return hit;
+        }
+
+        function onPointerDown(e) {
+            if (isMoving || gameOver || (gameMode === 'ai' && currentTurn === 'p2')) return;
+            if (e.target.closest('#menu-modal') || e.target.closest('#win-overlay') || e.target.closest('.btn-restart') || e.target.closest('.btn-launch')) return;
+
+            const hitPos = getPointerWorldPos(e);
+            const activeTeam = currentTurn === 'p1' ? p1Pucks : p2Pucks;
+
+            let minDist = 1.5;
+            activePuck = null;
+
+            activeTeam.forEach(p => {
+                if (!p.alive || p.falling) return;
+                const d = Math.sqrt((p.x - hitPos.x) ** 2 + (p.z - hitPos.z) ** 2);
+                if (d < minDist) {
+                    minDist = d;
+                    activePuck = p;
+                }
+            });
+
+            if (activePuck) {
+                isDragging = true;
+            }
+        }
+
+        function onPointerMove(e) {
+            if (!isDragging || !activePuck) return;
+
+            const hitPos = getPointerWorldPos(e);
+            const dragVec = new THREE.Vector2(activePuck.x - hitPos.x, activePuck.z - hitPos.z);
+
+            const length = dragVec.length();
+            if (length > 0.3) {
+                const maxDrag = 4.0;
+                const ratio = Math.min(length / maxDrag, 1.0);
+                const angle = Math.atan2(dragVec.x, dragVec.y);
+
+                activePuck.aimLine.visible = true;
+                activePuck.aimLine.rotation.set(0, angle, 0);
+                activePuck.aimLine.scale.set(1, 1, ratio * 6.0);
+
+                const launchForce = ratio * LAUNCH_POWER_SCALE;
+                const launchDir = dragVec.clone().normalize().multiplyScalar(launchForce);
+                activePuck.targetVel.set(launchDir.x, launchDir.y);
+                activePuck.hasAim = true;
+
+                if (ratio < 0.35) activePuck.aimMat.color.setHex(0x22c55e);
+                else if (ratio < 0.7) activePuck.aimMat.color.setHex(0xeab308);
+                else activePuck.aimMat.color.setHex(0xef4444);
+            }
+            checkLaunchButtonReady();
+        }
+
+        function onPointerUp() {
+            isDragging = false;
+            activePuck = null;
+        }
+
+        window.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+
+        function checkLaunchButtonReady() {
+            const activeTeam = currentTurn === 'p1' ? p1Pucks : p2Pucks;
+            const readyPucks = activeTeam.filter(p => p.alive && p.hasAim);
+            
+            const launchBtn = document.getElementById('launch-btn');
+            launchBtn.style.display = readyPucks.length > 0 ? 'block' : 'none';
+        }
+
+        function launchBatchShots() {
+            if (isMoving) return;
+
+            const activeTeam = currentTurn === 'p1' ? p1Pucks : p2Pucks;
+            activeTeam.forEach(p => {
+                if (p.alive && p.hasAim) {
+                    p.vx = p.targetVel.x;
+                    p.vz = p.targetVel.y;
+                    p.aimLine.visible = false;
+                    p.hasAim = false;
+                }
+            });
+
+            document.getElementById('launch-btn').style.display = 'none';
+            isMoving = true;
+        }
+
+        // --- COMPUTER AI (ADJUSTED FOR NEW PHYSICS) ---
+        function executeAITurn() {
+            if (gameOver) return;
+
+            const aliveCPU = p2Pucks.filter(p => p.alive && !p.falling);
+            const alivePlayer = p1Pucks.filter(p => p.alive && !p.falling);
+
+            if (aliveCPU.length === 0) return;
+
+            aliveCPU.forEach(shooter => {
+                if (alivePlayer.length > 0) {
+                    const target = alivePlayer[Math.floor(Math.random() * alivePlayer.length)];
+                    const dx = target.x - shooter.x + (Math.random() - 0.5) * 0.6;
+                    const dz = target.z - shooter.z + (Math.random() - 0.5) * 0.6;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    
+                    const dir = new THREE.Vector2(dx, dz).normalize();
+                    const force = Math.min(0.12 + dist * 0.018, LAUNCH_POWER_SCALE);
+
+                    shooter.targetVel.set(dir.x * force, dir.y * force);
+                    shooter.hasAim = true;
+                }
+            });
+
+            setTimeout(() => {
+                launchBatchShots();
+            }, 1000);
+        }
+
+        // --- ROUND SHRINKING & GAME FLOW ---
+        function shrinkArenaOneTier() {
+            if (currentRound < RING_RADII.length) {
+                const ringToDrop = iceRings[currentRound - 1];
+                if (ringToDrop) {
+                    ringToDrop.active = false;
+                    scene.remove(ringToDrop.mesh);
+                }
+                currentRadius = RING_RADII[currentRound];
+            }
+            currentRound++;
+        }
+
+        function checkTurnEnd() {
+            let totalVelocity = 0;
+            const allPucks = [...p1Pucks, ...p2Pucks];
+
+            allPucks.forEach(p => {
+                if (!p.alive) return;
+                if (!p.falling) {
+                    totalVelocity += Math.sqrt(p.vx * p.vx + p.vz * p.vz);
+                } else {
+                    totalVelocity += 0.1;
+                }
+            });
+
+            if (isMoving && totalVelocity < 0.003) {
+                allPucks.forEach(p => {
+                    p.vx = 0;
+                    p.vz = 0;
+                });
+
+                isMoving = false;
+                updateScoreUI();
+
+                if (!checkWinCondition()) {
+                    switchTurn();
+                }
+            }
+        }
+
+        function switchTurn() {
+            if (currentTurn === 'p2') {
+                shrinkArenaOneTier();
+            }
+
+            currentTurn = currentTurn === 'p1' ? 'p2' : 'p1';
+            const banner = document.getElementById('turn-banner');
+
+            document.getElementById('p1-score-card').classList.toggle('active', currentTurn === 'p1');
+            document.getElementById('p2-score-card').classList.toggle('active', currentTurn === 'p2');
+
+            if (currentTurn === 'p1') {
+                banner.innerText = "P1: Set aim for your pucks";
+                banner.style.color = "#3b82f6";
+            } else {
+                banner.innerText = gameMode === 'ai' ? "CPU is aiming..." : "P2: Set aim for your pucks";
+                banner.style.color = "#ef4444";
+
+                if (gameMode === 'ai') {
+                    executeAITurn();
+                }
+            }
+        }
+
+        function updateScoreUI() {
+            document.getElementById('p1-count').innerText = p1Pucks.filter(p => p.alive).length;
+            document.getElementById('p2-count').innerText = p2Pucks.filter(p => p.alive).length;
+        }
+
+        function checkWinCondition() {
+            const p1Count = p1Pucks.filter(p => p.alive).length;
+            const p2Count = p2Pucks.filter(p => p.alive).length;
+
+            if (p1Count === 0 || p2Count === 0) {
+                gameOver = true;
+                const winOverlay = document.getElementById('win-overlay');
+                const winText = document.getElementById('win-text');
+
+                if (p1Count > 0) {
+                    winText.innerText = "PLAYER 1 WINS!";
+                    winText.style.color = "#3b82f6";
+                } else {
+                    winText.innerText = gameMode === 'ai' ? "CPU WINS!" : "PLAYER 2 WINS!";
+                    winText.style.color = "#ef4444";
+                }
+                winOverlay.style.display = 'flex';
+                return true;
+            }
+            return false;
+        }
+
+        function startGame(mode) {
+            gameMode = mode;
+            document.getElementById('p2-label').innerText = mode === 'ai' ? 'CPU' : 'P2';
+            document.getElementById('menu-modal').style.display = 'none';
+            resetGame();
+        }
+
+        function showMenu() {
+            document.getElementById('menu-modal').style.display = 'flex';
+            document.getElementById('win-overlay').style.display = 'none';
+        }
+
+        function resetGame() {
+            gameOver = false;
+            currentTurn = 'p1';
+            isMoving = false;
+            currentRound = 1;
+            currentRadius = RING_RADII[0];
+
+            createCircularArena();
+            spawnPucks();
+
+            document.getElementById('win-overlay').style.display = 'none';
+            document.getElementById('launch-btn').style.display = 'none';
+            document.getElementById('p1-score-card').classList.add('active');
+            document.getElementById('p2-score-card').classList.remove('active');
+            document.getElementById('turn-banner').innerText = "P1: Set aim for your pucks";
+            document.getElementById('turn-banner').style.color = "#3b82f6";
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updatePhysics();
+            checkTurnEnd();
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
